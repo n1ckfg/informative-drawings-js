@@ -26,8 +26,11 @@
       
       let onnxSession;
       (async function() {
+        //const url="https://huggingface.co/rocca/informative-drawings-line-art-onnx/resolve/main/model.onnx";
+        const url="model.onnx";
+
         console.log("Downloading model... (see network tab for progress)");
-        onnxSession = await ort.InferenceSession.create('https://huggingface.co/rocca/informative-drawings-line-art-onnx/resolve/main/model.onnx', { executionProviders: ["wasm"] });
+        onnxSession = await ort.InferenceSession.create(url, { executionProviders: ["wasm"] });
         console.log("Model loaded.");
         startBtn.disabled = false;
         startBtn.textContent = "start";
