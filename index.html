@@ -1,31 +1,65 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Convert Image to Line Art / Sketch (with JS)</title>
+    <title>Webcam to Line Art / Sketch (with JS)</title>
     <script src="./worker.js"></script>
+    <style>
+      body { font-family: sans-serif; }
+      .controls > * { margin: 4px 0; }
+      input[type=number] { width: 5em; }
+      #views { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+      #views figure { margin: 0; }
+      #views video, #views canvas { width: 640px; max-width: 100%; height: auto; background: #222; display: block; }
+      #stats { font-family: monospace; }
+    </style>
   </head>
   <body>
     <script src="./js/libraries/ort/ort.js"></script>
-    
-    <div>
-      Select one or more images: <input type="file" accept="image/*" multiple id="fileInputEl">
-      <br>
-      Then click here: <button id="startBtn" onclick="main()" disabled>loading model...</button>
-      <br>
-      Save all the resulting line art images: <button id="downloadBtn" disabled onclick="downloadOutputImages()">save</button>
+
+    <div class="controls">
+      <div>
+        Resolution:
+        <input type="number" id="widthEl" value="320" min="16" step="1"> x
+        <input type="number" id="heightEl" value="240" min="16" step="1">
+      </div>
+      <div>
+        <button id="startBtn" onclick="toggle()" disabled>loading model...</button>
+        <span id="stats">FPS: -- | inference: -- ms</span>
+      </div>
+      <div id="statusEl"></div>
     </div>
+
+    <div id="views">
+      <figure>
+        <video id="videoEl" autoplay playsinline muted></video>
+        <figcaption>webcam</figcaption>
+      </figure>
+      <figure>
+        <canvas id="outputCanvas" width="320" height="240"></canvas>
+        <figcaption>line art</figcaption>
+      </figure>
+    </div>
+
     <p><a href="https://github.com/josephrocca/image-to-line-art-js">github repo</a> - <a href="https://huggingface.co/rocca/informative-drawings-line-art-onnx">huggingface repo</a></p>
-    
+
     <script>
       if(self.crossOriginIsolated) { // needs to be cross-origin-isolated to use wasm threads. you need to serve this html file with these two headers: https://web.dev/coop-coep/
         ort.env.wasm.numThreads = navigator.hardwareConcurrency
       }
       ort.env.wasm.proxy = true;
       ort.env.wasm.wasmPaths = new URL('./js/libraries/ort/', location.href).href; // must be absolute: the proxy worker runs from a blob: URL, so relative paths can't resolve
-      
+
       if(!window.OffscreenCanvas) alert("Your browser doesn't support OffscreenCanvas - a browser feature that was standardized way back in 2018. Please use a modern browser like Chrome, Edge or Brave.");
-      
+
+      // Canvas used to scale/crop webcam frames down to the model input resolution
+      const inputCanvas = new OffscreenCanvas(320, 240);
+      const inputCtx = inputCanvas.getContext("2d", { willReadFrequently: true });
+      const outputCtx = outputCanvas.getContext("2d");
+
       let onnxSession;
+      let running = false;
+      let stream = null;
+
       (async function() {
         //const url="https://huggingface.co/rocca/informative-drawings-line-art-onnx/resolve/main/model.onnx";
         const url="model.onnx";
@@ -34,97 +68,121 @@
         onnxSession = await ort.InferenceSession.create(url, { executionProviders: ["wasm"] });
         console.log("Model loaded.");
         startBtn.disabled = false;
-        startBtn.textContent = "start";
+        startBtn.textContent = "start webcam";
       })();
-      
-      async function main() {
-        if(!fileInputEl.files[0]) return alert("Please select some images first.");
-        
-        startBtn.disabled = true;
-        startBtn.innerHTML = "processing...";
-        
-        let inputBlob;
-        for(let inputBlob of fileInputEl.files) {
-          let {data, width, height} = await blobToLinearRGBArray(inputBlob);
 
-          const feeds = {'input': new ort.Tensor('float32', data, [1, 3, height, width])};
-
-          console.log("Running inference...");
-          let t = Date.now();
-          const results = await onnxSession.run(feeds);
-          console.log(`Finished in ${Date.now()-t}ms`);
-
-          const out = results["output"]; // greyscale data tensor
-          console.log(`results:`, out);
-
-          let blob = await linearGreyscaleArrayToBlob(out.data, {width:out.dims[3], height:out.dims[2]});
-          let blobUrl = URL.createObjectURL(blob);
-          let imgEl = document.createElement("img");
-          imgEl.dataset.name = inputBlob.name;
-          imgEl.src = blobUrl;
-          document.body.appendChild(imgEl);
-        }
-        
-        startBtn.disabled = false;
-        startBtn.innerHTML = "start";
-        downloadBtn.disabled = false;
+      function getResolution() {
+        const w = Math.max(16, Math.round(Number(widthEl.value)) || 320);
+        const h = Math.max(16, Math.round(Number(heightEl.value)) || 240);
+        return { width: w, height: h };
       }
-      
-      async function getBlobImageDims(blob) {
-        let img = await createImageBitmap(blob);
-        return {width:img.width, height:img.height};
-      }
-      
-      async function linearGreyscaleArrayToBlob(linearArr, dims) {
-        let dataArray = [];
-        for(let i = 0; i < linearArr.length; i++) {
-          dataArray.push(linearArr[i]*255); // R
-          dataArray.push(linearArr[i]*255); // G
-          dataArray.push(linearArr[i]*255); // B
-          dataArray.push(1*255);            // A
-        }
-        //let imageData = ctx.createImageData(256, 256);
-        let imageData = new ImageData(new Uint8ClampedArray(dataArray), dims.width, dims.height);
-        let canvas = new OffscreenCanvas(dims.width, dims.height);
-        let ctx = canvas.getContext("2d");
-        ctx.putImageData(imageData, 0, 0);
-        return canvas.convertToBlob({type:"image/jpg"});
-      }
-      
-      // this function resizes to 256px width
-      async function blobToLinearRGBArray(blob) {
-        let img = await createImageBitmap(blob);
-        let canvas = new OffscreenCanvas(img.width, img.height);
-        let ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        let imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-        let rgbData = [[], [], []]; // [r, g, b]
-        // remove alpha and put into correct shape:
-        let d = imageData.data;
-        for(let i = 0; i < d.length; i += 4) { 
-          let x = (i/4) % canvas.width;
-          let y = Math.floor((i/4) / canvas.width)
-          if(!rgbData[0][y]) rgbData[0][y] = [];
-          if(!rgbData[1][y]) rgbData[1][y] = [];
-          if(!rgbData[2][y]) rgbData[2][y] = [];
-          rgbData[0][y][x] = d[i+0]/255;
-          rgbData[1][y][x] = d[i+1]/255;
-          rgbData[2][y][x] = d[i+2]/255;
+      async function toggle() {
+        if(running) return stop();
+
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+        } catch(e) {
+          statusEl.textContent = "Could not access webcam: " + e.message;
+          return;
         }
-        rgbData = Float32Array.from(rgbData.flat().flat());
-        return {data:rgbData, width:img.width, height:img.height};
+        videoEl.srcObject = stream;
+        await videoEl.play();
+
+        running = true;
+        statusEl.textContent = "";
+        startBtn.textContent = "stop";
+        loop();
       }
-      
-      async function downloadOutputImages() {
-        let directoryHandle = await window.showDirectoryPicker();
-        for(let img of [...document.querySelectorAll("img")]) {
-          let url = img.src;
-          let name = img.dataset.name+".lines.jpg";
-          let fileHandle = await directoryHandle.getFileHandle(name, {create:true});
-          let response = await fetch(url);
-          await response.body.pipeTo(await fileHandle.createWritable());
+
+      function stop() {
+        running = false;
+        if(stream) stream.getTracks().forEach(t => t.stop());
+        stream = null;
+        videoEl.srcObject = null;
+        startBtn.textContent = "start webcam";
+      }
+
+      async function loop() {
+        let frameCount = 0;
+        let fpsWindowStart = performance.now();
+        let lastInferenceMs = 0;
+
+        while(running) {
+          const { width, height } = getResolution();
+
+          try {
+            const data = videoFrameToPlanarRGB(videoEl, width, height);
+            const feeds = { 'input': new ort.Tensor('float32', data, [1, 3, height, width]) };
+
+            const t = performance.now();
+            const results = await onnxSession.run(feeds);
+            lastInferenceMs = performance.now() - t;
+
+            const out = results["output"]; // greyscale data tensor, shape [1, 1, H, W]
+            drawGreyscaleToCanvas(out.data, out.dims[3], out.dims[2]);
+            statusEl.textContent = "";
+          } catch(e) {
+            console.error(e);
+            statusEl.textContent = `Inference failed at ${width}x${height}: ${e.message || e}`;
+            await new Promise(r => setTimeout(r, 500)); // avoid spamming errors on a bad resolution
+          }
+
+          frameCount++;
+          const now = performance.now();
+          if(now - fpsWindowStart >= 1000) {
+            const fps = frameCount * 1000 / (now - fpsWindowStart);
+            stats.textContent = `FPS: ${fps.toFixed(1)} | inference: ${lastInferenceMs.toFixed(0)} ms | ${width}x${height}`;
+            frameCount = 0;
+            fpsWindowStart = now;
+          }
+
+          await new Promise(r => requestAnimationFrame(r)); // yield to the browser between frames
         }
+
+        stats.textContent = "FPS: -- | inference: -- ms";
+      }
+
+      // Draws the current video frame into a width x height canvas (center-cropped to preserve
+      // aspect ratio) and returns planar, normalized RGB data with shape [3, height, width].
+      function videoFrameToPlanarRGB(video, width, height) {
+        if(inputCanvas.width !== width || inputCanvas.height !== height) {
+          inputCanvas.width = width;
+          inputCanvas.height = height;
+        }
+
+        const vw = video.videoWidth, vh = video.videoHeight;
+        const scale = Math.max(width / vw, height / vh);
+        const sw = width / scale, sh = height / scale;
+        const sx = (vw - sw) / 2, sy = (vh - sh) / 2;
+        inputCtx.drawImage(video, sx, sy, sw, sh, 0, 0, width, height);
+
+        const d = inputCtx.getImageData(0, 0, width, height).data;
+        const n = width * height;
+        const out = new Float32Array(3 * n); // fresh buffer each frame (the proxy worker may take ownership of it)
+        for(let i = 0, p = 0; p < n; i += 4, p++) {
+          out[p]         = d[i]     / 255; // R
+          out[p + n]     = d[i + 1] / 255; // G
+          out[p + 2 * n] = d[i + 2] / 255; // B
+        }
+        return out;
+      }
+
+      let outputImageData = null;
+      function drawGreyscaleToCanvas(linearArr, width, height) {
+        if(outputCanvas.width !== width || outputCanvas.height !== height) {
+          outputCanvas.width = width;
+          outputCanvas.height = height;
+        }
+        if(!outputImageData || outputImageData.width !== width || outputImageData.height !== height) {
+          outputImageData = new ImageData(width, height);
+        }
+        const px = outputImageData.data;
+        for(let i = 0, j = 0; i < linearArr.length; i++, j += 4) {
+          const v = linearArr[i] * 255;
+          px[j] = v; px[j + 1] = v; px[j + 2] = v; px[j + 3] = 255;
+        }
+        outputCtx.putImageData(outputImageData, 0, 0);
       }
     </script>
   </body>
