@@ -8,6 +8,6 @@ def to_fp16(input_path, output_path):
     onnx.save(model_fp16, output_path)
     print(f"Saved to {output_path}")
 
-to_fp16("model_320x240.onnx", "model_320x240_fp16.onnx")
-to_fp16("model_640x480.onnx", "model_640x480_fp16.onnx")
-to_fp16("model.onnx", "model_fp16.onnx")
+to_fp16("models/model_320x240.onnx", "models/model_320x240_fp16.onnx")
+to_fp16("models/model_640x480.onnx", "models/model_640x480_fp16.onnx")
+to_fp16("models/model.onnx", "models/model_fp16.onnx")

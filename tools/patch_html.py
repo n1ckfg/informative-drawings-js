@@ -147,9 +147,9 @@ new_js = """      if(self.crossOriginIsolated) { // needs to be cross-origin-iso
           backend = "wasm";
         }
 
-        let url = "model.onnx";
+        let url = "models/model.onnx";
         if (requestedRes !== "dynamic") {
-          url = `model_${requestedRes}${backend === "webgpu" ? "_fp16" : ""}.onnx`;
+          url = `models/model_${requestedRes}${backend === "webgpu" ? "_fp16" : ""}.onnx`;
         }
 
         console.log(`Downloading model ${url}... (see network tab for progress) [backend: ${backend}]`);
@@ -162,7 +162,7 @@ new_js = """      if(self.crossOriginIsolated) { // needs to be cross-origin-iso
           backend = "wasm";
           
           if (requestedRes !== "dynamic") {
-             url = `model_${requestedRes}.onnx`; // Fallback to fp32 model if we fall back to wasm
+             url = `models/model_${requestedRes}.onnx`; // Fallback to fp32 model if we fall back to wasm
           }
           onnxSession = await createSession(url, backend);
         }

@@ -25,5 +25,5 @@ def freeze(input_path, output_path, w, h):
     print(f"Saved to {output_path}")
 
 if __name__ == "__main__":
-    freeze("model.onnx", "model_320x240.onnx", 320, 240)
-    freeze("model.onnx", "model_640x480.onnx", 640, 480)
+    freeze("models/model.onnx", "models/model_320x240.onnx", 320, 240)
+    freeze("models/model.onnx", "models/model_640x480.onnx", 640, 480)

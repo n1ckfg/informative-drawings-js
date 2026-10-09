@@ -14,7 +14,7 @@ Multi-threaded WASM is enabled with a Service Worker workaround, and CPU inferen
 | --- | --- |
 | `index.html` | UI and all application logic (webcam capture, inference loop, pre/post-processing, FPS counter, backend and resolution selection) |
 | `worker.js` | COOP/COEP Service Worker that enables cross-origin isolation (needed for WASM threads) |
-| `model*.onnx` | Informative Drawings line-art generator models (various shapes, including standard `fp32` and WebGPU-optimized `fp16`), served locally |
+| `models/model*.onnx` | Informative Drawings line-art generator models (various shapes, including standard `fp32` and WebGPU-optimized `fp16`), served locally |
 | `js/libraries/ort/` | Vendored ONNX Runtime Web v1.30.0 (`ort.min.js` plus the `ort-wasm*.wasm` / `.mjs` backends) |
 | `tools/` | Python scripts used to freeze model input shapes and generate `fp16` variants, as well as the original Colab notebook |
 | `run.command` / `run.bat` | Convenience launchers that start `http-server` and open `http://127.0.0.1:8080` |
@@ -32,11 +32,11 @@ Multi-threaded WASM is enabled with a Service Worker workaround, and CPU inferen
 ### `worker.js` (COOP/COEP Service Worker)
 Based on [`coi-serviceworker`](https://github.com/gzuidhof/coi-serviceworker). Intercepts every fetch and adds `Cross-Origin-Embedder-Policy: credentialless` and `Cross-Origin-Opener-Policy: same-origin` to the responses. This makes the page cross-origin isolated (`self.crossOriginIsolated === true`), which is required for `SharedArrayBuffer` (used by ORT for multi-threaded WASM).
 
-### Machine Learning Models (`model*.onnx`)
+### Machine Learning Models (`models/model*.onnx`)
 The line-art generator from [Informative Drawings](https://github.com/carolineec/informative-drawings), converted to ONNX. It is fully convolutional.
-- We provide **fixed-shape** optimized models (e.g., `model_320x240.onnx`, `model_640x480.onnx`, `model_256x256.onnx`) created by stripping dynamic dimensions and simplifying operations. Fixed shapes prevent massive WebGPU shader re-compilation stalls.
+- We provide **fixed-shape** optimized models (e.g., `models/model_320x240.onnx`, `models/model_640x480.onnx`, `models/model_256x256.onnx`) created by stripping dynamic dimensions and simplifying operations. Fixed shapes prevent massive WebGPU shader re-compilation stalls.
 - Each fixed shape also has an `_fp16.onnx` variant optimized for WebGPU.
-- The original dynamic `model.onnx` is retained as a fallback for the "Custom" resolution mode.
+- The original dynamic `models/model.onnx` is retained as a fallback for the "Custom" resolution mode.
 
 ### ONNX Runtime Web (`js/libraries/ort/`)
 A local copy of the ONNX Runtime Web library (`1.30.0`), allowing offline execution. It supports WebGPU execution directly on the main thread, or WebAssembly execution in the proxy worker.
