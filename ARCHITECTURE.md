@@ -22,7 +22,7 @@ Multi-threaded WASM is enabled with a Service Worker workaround, and CPU inferen
 ## 3. Core Components
 
 ### `index.html` (UI & Application Logic)
-- **UI**: A dropdown to select the backend (Auto, WebGPU, WASM), a dropdown to select resolution (256x256, 320x240, 640x480, or custom dynamic shape), a start/stop button, a stats readout (FPS, inference time, resolution), and two side-by-side views: the live `<video>` and the line-art output `<canvas>`.
+- **UI**: A dropdown to select the backend (Auto, WebGPU, WASM), a dropdown to select resolution (128x128, 160x120, 256x256, 320x240, 512x512, 640x480, or custom dynamic shape), a start/stop button, a stats readout (FPS, inference time, resolution), and two side-by-side views: the live `<video>` and the line-art output `<canvas>`.
 - **Backend Selection**: The page reloads with URL query parameters (`?backend=...&res=...`) when changing the backend or resolution, because ORT's environment cannot be safely changed after initialization.
 - **ORT configuration**: sets `ort.env.wasm.numThreads` to `navigator.hardwareConcurrency` when the page is cross-origin isolated. For the WASM backend, it enables `ort.env.wasm.proxy` (inference runs in a background Web Worker).
 - **Model initialization**: Automatically selects the best model for the current resolution and backend. If WebGPU is active, it loads the lighter `fp16` model variant. If the browser lacks WebGPU support, it safely falls back to WASM using the `fp32` model.
