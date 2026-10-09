@@ -1,0 +1,1 @@
+onnxruntime-web 1.30.0 (from npm: dist/ort.min.js + JSEP wasm build; supports webgpu and wasm EPs)
