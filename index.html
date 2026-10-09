@@ -2,10 +2,10 @@
 <html>
   <head>
     <title>Convert Image to Line Art / Sketch (with JS)</title>
-    <script src="github-pages-coop-coep-workaround.js"></script>
+    <script src="./worker.js"></script>
   </head>
   <body>
-    <script src="js/libraries/ort.js"></script>
+    <script src="./js/libraries/ort/ort.js"></script>
     
     <div>
       Select one or more images: <input type="file" accept="image/*" multiple id="fileInputEl">
@@ -21,7 +21,7 @@
         ort.env.wasm.numThreads = navigator.hardwareConcurrency
       }
       ort.env.wasm.proxy = true;
-      ort.env.wasm.wasmPaths = 'js/libraries/';
+      ort.env.wasm.wasmPaths = new URL('./js/libraries/ort/', location.href).href; // must be absolute: the proxy worker runs from a blob: URL, so relative paths can't resolve
       
       if(!window.OffscreenCanvas) alert("Your browser doesn't support OffscreenCanvas - a browser feature that was standardized way back in 2018. Please use a modern browser like Chrome, Edge or Brave.");
       
