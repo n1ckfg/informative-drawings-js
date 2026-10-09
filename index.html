@@ -29,8 +29,10 @@
       <div>
         Resolution:
         <select id="resEl">
+          <option value="128x128">128 x 128</option>
           <option value="256x256">256 x 256</option>
           <option value="320x240">320 x 240</option>
+          <option value="512x512">512 x 512</option>
           <option value="640x480">640 x 480</option>
           <option value="dynamic">Custom (Dynamic shape)</option>
         </select>
@@ -86,7 +88,7 @@
         location.search = urlParams.toString();
       };
 
-      const requestedRes = ["256x256", "320x240", "640x480", "dynamic"].includes(urlParams.get("res")) ? urlParams.get("res") : "320x240";
+      const requestedRes = ["128x128", "256x256", "320x240", "512x512", "640x480", "dynamic"].includes(urlParams.get("res")) ? urlParams.get("res") : "320x240";
       resEl.value = requestedRes;
       if (requestedRes === "dynamic") customRes.style.display = "inline";
       resEl.onchange = () => {
